@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: #e8a23d;
+  color: #1b1f2b;
+}
+
+.tear-line {
+  position: relative;
+  border-top: 2px dashed #6b7280;
+}
+.tear-line::before,
+.tear-line::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  background: #f7f3ec;
+  border-radius: 50%;
+}
+.tear-line::before {
+  left: -9px;
+}
+.tear-line::after {
+  right: -9px;
+}
+
+@media print {
+  header,
+  .no-print {
+    display: none !important;
+  }
+}

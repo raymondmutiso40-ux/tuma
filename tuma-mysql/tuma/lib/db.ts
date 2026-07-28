@@ -17,8 +17,18 @@ function createPool(): mysql.Pool {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     waitForConnections: true,
-    connectionLimit: 10,
+    // Vercel runs each request on a serverless function instance, not one
+    // long-lived server, so keep the per-instance pool small. Warm
+    // instances reuse this pool via `global.__tumaPool` below.
+    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 3),
     queueLimit: 0,
+    // TiDB Serverless (and most hosted MySQL) requires TLS. Set DB_SSL=true
+    // in your environment variables to enable it; leave unset for a local
+    // MySQL instance that doesn't use TLS.
+    ssl:
+      process.env.DB_SSL === "true"
+        ? { minVersion: "TLSv1.2", rejectUnauthorized: true }
+        : undefined,
   });
 }
 

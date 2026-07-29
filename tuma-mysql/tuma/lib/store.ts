@@ -20,6 +20,8 @@ interface BookingRow extends RowDataPacket {
   carrier_name: string;
   price_kes: number;
   mpesa_phone: string | null;
+  mpesa_checkout_request_id: string | null;
+  mpesa_receipt_number: string | null;
   paid_at: Date | null;
   verified_at: Date | null;
 }
@@ -43,6 +45,8 @@ function rowToBooking(row: BookingRow): Booking {
     carrierName: row.carrier_name,
     priceKes: row.price_kes,
     mpesaPhone: row.mpesa_phone,
+    mpesaCheckoutRequestId: row.mpesa_checkout_request_id,
+    mpesaReceiptNumber: row.mpesa_receipt_number,
     paidAt: row.paid_at ? row.paid_at.toISOString() : null,
     verifiedAt: row.verified_at ? row.verified_at.toISOString() : null,
   };
@@ -102,17 +106,34 @@ export async function updateBooking(
   const pool = getPool();
   await pool.query(
     `UPDATE bookings SET
-      status = ?, mpesa_phone = ?, paid_at = ?, verified_at = ?
+      status = ?, mpesa_phone = ?, mpesa_checkout_request_id = ?,
+      mpesa_receipt_number = ?, paid_at = ?, verified_at = ?
      WHERE ref = ?`,
     [
       merged.status,
       merged.mpesaPhone,
+      merged.mpesaCheckoutRequestId,
+      merged.mpesaReceiptNumber,
       merged.paidAt ? new Date(merged.paidAt) : null,
       merged.verifiedAt ? new Date(merged.verifiedAt) : null,
       ref,
     ]
   );
   return merged;
+}
+
+// Safaricom's callback identifies the transaction by CheckoutRequestID, not
+// our own booking ref, so we need to look bookings up that way too.
+export async function getBookingByCheckoutRequestId(
+  checkoutRequestId: string
+): Promise<Booking | undefined> {
+  const pool = getPool();
+  const [rows] = await pool.query<BookingRow[]>(
+    "SELECT * FROM bookings WHERE mpesa_checkout_request_id = ? LIMIT 1",
+    [checkoutRequestId]
+  );
+  if (!rows.length) return undefined;
+  return rowToBooking(rows[0]);
 }
 
 export function generateRef(): string {

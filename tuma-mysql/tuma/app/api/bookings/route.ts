@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
     carrierName: carrier.name,
     priceKes,
     mpesaPhone: null,
+    mpesaCheckoutRequestId: null,
+    mpesaReceiptNumber: null,
     paidAt: null,
     verifiedAt: null,
   };

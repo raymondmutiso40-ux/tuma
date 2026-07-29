@@ -20,8 +20,10 @@ export async function POST(req: NextRequest) {
     });
 
     await updateBooking(ref, {
-      mpesaPhone: phone || null,
-      mpesaCheckoutRequestId: result.checkoutRequestId,
+      mpesaPhone: null,
+    mpesaCheckoutRequestId: null,
+    mpesaReceiptNumber: null,
+      
     });
 
     return NextResponse.json({

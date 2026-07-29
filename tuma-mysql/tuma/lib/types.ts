@@ -1,4 +1,8 @@
-export type BookingStatus = "pending_payment" | "paid" | "verified";
+export type BookingStatus =
+  | "pending_payment"
+  | "payment_failed"
+  | "paid"
+  | "verified";
 
 export interface Booking {
   ref: string;
@@ -26,6 +30,8 @@ export interface Booking {
 
   // payment
   mpesaPhone: string | null;
+  mpesaCheckoutRequestId: string | null;
+  mpesaReceiptNumber: string | null;
   paidAt: string | null;
   verifiedAt: string | null;
 }

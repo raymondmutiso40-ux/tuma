@@ -107,13 +107,48 @@ export default function BookPage() {
       const stkData = await stkRes.json();
       if (!stkRes.ok) throw new Error(stkData.error || "Payment failed");
 
-      setPayStage("confirmed");
-      setTimeout(() => router.push(`/ticket/${ref}`), 800);
+      // The STK push has been sent to the customer's phone. Real
+      // confirmation comes from Safaricom's callback, which the server
+      // records against this booking asynchronously — so we poll for it
+      // rather than assuming success here.
+      const confirmedStatus = await pollForPaymentResult(ref);
+
+      if (confirmedStatus === "paid") {
+        setPayStage("confirmed");
+        setTimeout(() => router.push(`/ticket/${ref}`), 800);
+      } else if (confirmedStatus === "payment_failed") {
+        throw new Error(
+          "Payment wasn't completed — you may have entered the wrong PIN or cancelled. Please try again."
+        );
+      } else {
+        throw new Error(
+          "Didn't receive confirmation in time. Check your phone — if you already paid, refresh in a moment."
+        );
+      }
     } catch (e: any) {
       setError(e.message || "Something went wrong");
       setPaying(false);
       setPayStage("idle");
     }
+  }
+
+  // Polls GET /api/bookings/[ref] every 3s, for up to ~90s (the customer
+  // has 60s to enter their PIN, plus a little slack for the callback to
+  // arrive and be processed).
+  async function pollForPaymentResult(
+    ref: string
+  ): Promise<"paid" | "payment_failed" | "timeout"> {
+    const maxAttempts = 30;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const res = await fetch(`/api/bookings/${ref}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const status = data.booking?.status;
+      if (status === "paid") return "paid";
+      if (status === "payment_failed") return "payment_failed";
+    }
+    return "timeout";
   }
 
   return (

@@ -1,11 +1,7 @@
+// app/api/mpesa/stk/route.ts — replace the whole existing file
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking, updateBooking } from "@/lib/store";
-
-// This simulates what a real M-Pesa Daraja STK Push integration would do:
-// 1. POST to Safaricom's /stkpush endpoint with the amount + phone number
-// 2. Safaricom pushes a PIN prompt to the customer's phone
-// 3. Safaricom calls your callback URL once the customer enters their PIN
-// Here we just fake the delay and mark the booking as paid.
+import { initiateStkPush } from "@/lib/daraja";
 
 export async function POST(req: NextRequest) {
   const { ref, phone } = await req.json();
@@ -15,17 +11,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  try {
+    const result = await initiateStkPush({
+      phone,
+      amount: booking.priceKes,
+      accountReference: booking.ref,
+      transactionDesc: "Parcel fee",
+    });
 
-  const updated = await updateBooking(ref, {
-    status: "paid",
-    mpesaPhone: phone || null,
-    paidAt: new Date().toISOString(),
-  });
+    await updateBooking(ref, {
+      mpesaPhone: phone || null,
+      mpesaCheckoutRequestId: result.checkoutRequestId,
+    });
 
-  return NextResponse.json({
-    status: "success",
-    message: "Payment confirmed",
-    booking: updated,
-  });
+    return NextResponse.json({
+      status: "pending",
+      message: result.customerMessage || "Check your phone and enter your M-Pesa PIN",
+      checkoutRequestId: result.checkoutRequestId,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Could not start M-Pesa payment" },
+      { status: 502 }
+    );
+  }
 }

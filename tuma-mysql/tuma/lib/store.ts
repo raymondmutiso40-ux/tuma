@@ -1,8 +1,7 @@
 import { getPool } from "./db";
 import { Booking, BookingStatus } from "./types";
-import { RowDataPacket } from "mysql2";
 
-interface BookingRow extends RowDataPacket {
+interface BookingRow {
   ref: string;
   created_at: Date;
   status: BookingStatus;
@@ -52,6 +51,14 @@ function rowToBooking(row: BookingRow): Booking {
   };
 }
 
+export async function getAllBookings(): Promise<Booking[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<BookingRow>(
+    "SELECT * FROM bookings ORDER BY created_at DESC LIMIT 200"
+  );
+  return rows.map(rowToBooking);
+}
+
 export async function createBooking(booking: Booking): Promise<Booking> {
   const pool = getPool();
   await pool.query(
@@ -59,7 +66,7 @@ export async function createBooking(booking: Booking): Promise<Booking> {
       (ref, created_at, status, description, category, weight_kg, photo_data_url,
        origin, destination, sender_name, sender_phone, recipient_name, recipient_phone,
        carrier_key, carrier_name, price_kes, mpesa_phone, paid_at, verified_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
     [
       booking.ref,
       new Date(booking.createdAt),
@@ -87,8 +94,8 @@ export async function createBooking(booking: Booking): Promise<Booking> {
 
 export async function getBooking(ref: string): Promise<Booking | undefined> {
   const pool = getPool();
-  const [rows] = await pool.query<BookingRow[]>(
-    "SELECT * FROM bookings WHERE ref = ? LIMIT 1",
+  const { rows } = await pool.query<BookingRow>(
+    "SELECT * FROM bookings WHERE ref = $1 LIMIT 1",
     [ref]
   );
   if (!rows.length) return undefined;
@@ -106,9 +113,9 @@ export async function updateBooking(
   const pool = getPool();
   await pool.query(
     `UPDATE bookings SET
-      status = ?, mpesa_phone = ?, mpesa_checkout_request_id = ?,
-      mpesa_receipt_number = ?, paid_at = ?, verified_at = ?
-     WHERE ref = ?`,
+      status = $1, mpesa_phone = $2, mpesa_checkout_request_id = $3,
+      mpesa_receipt_number = $4, paid_at = $5, verified_at = $6
+     WHERE ref = $7`,
     [
       merged.status,
       merged.mpesaPhone,
@@ -128,8 +135,8 @@ export async function getBookingByCheckoutRequestId(
   checkoutRequestId: string
 ): Promise<Booking | undefined> {
   const pool = getPool();
-  const [rows] = await pool.query<BookingRow[]>(
-    "SELECT * FROM bookings WHERE mpesa_checkout_request_id = ? LIMIT 1",
+  const { rows } = await pool.query<BookingRow>(
+    "SELECT * FROM bookings WHERE mpesa_checkout_request_id = $1 LIMIT 1",
     [checkoutRequestId]
   );
   if (!rows.length) return undefined;

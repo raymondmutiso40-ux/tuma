@@ -18,7 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="font-body bg-paper text-ink">{children}</body>
+     <body className="font-body bg-paper text-ink">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

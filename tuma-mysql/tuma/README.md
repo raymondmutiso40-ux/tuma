@@ -168,18 +168,24 @@ animation keyframes all live in `tailwind.config.ts`; `app/globals.css` holds
 the base layer, the focus treatment, the skeleton shimmer and the
 reduced-motion and print rules.
 
-Two things worth knowing before you add a screen:
+Three things worth knowing before you add a screen:
 
 - `amber` is a 2:1 colour on white. Use it on dark surfaces or as a non-text
   fill; for amber text on a light background use `amber-700`.
 - Status is never communicated by colour alone — `StatusBadge` pairs the tone
   with a label and a dot, and `BookingTimeline` uses distinct icons per state.
+- Tailwind opacity modifiers must be **multiples of 5**. `bg-ink-950/75` is
+  fine; `bg-ink-950/72` compiles to nothing at all, with no build warning. Use
+  bracket syntax (`/[0.72]`) if you genuinely need something in between.
 
-The hero animation lives at `public/hero-3d.mp4` (1280×720). It is not
-requested until it nears the viewport, is muted and `playsInline`, and is
-replaced by a branded fallback panel for anyone with reduced motion enabled
-or a browser that can't decode it. To add a first-frame poster image, drop one
-in `public/` and pass it as `<HeroVideo poster="/hero-poster.jpg" />`.
+The 3D animation at `public/hero-3d.mp4` (1280×720) is the background of the
+landing hero: `<HeroVideo />` renders as an absolute fill behind the hero copy
+and carries its own scrim — heavy on the left where the text sits, light on the
+right so the animation shows through. It is not requested until it nears the
+viewport, is muted and `playsInline`, and falls back to a branded gradient for
+anyone with reduced motion enabled or a browser that can't decode it. To add a
+first-frame poster image, drop one in `public/` and pass it as
+`<HeroVideo poster="/hero-poster.jpg" />`.
 
 ## 4. Next steps toward a real pilot
 

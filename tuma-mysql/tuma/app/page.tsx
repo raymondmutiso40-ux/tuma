@@ -96,16 +96,13 @@ export default function LandingPage() {
 
       <main id="main">
         {/* ── HERO ─────────────────────────────────────────────────────── */}
-        <section className="relative bg-ink-950 text-paper on-dark overflow-hidden">
-          {/* Depth without a gradient wash: one soft radial glow behind the
-              copy, and a hairline grid that fades out. */}
-          <div
-            className="absolute inset-0 bg-[radial-gradient(80%_60%_at_15%_0%,rgba(232,162,61,0.13)_0%,transparent_60%)]"
-            aria-hidden
-          />
+        {/* The 3D animation is the background of this whole section; the copy
+            sits on top of it. HeroVideo brings its own scrim. */}
+        <section className="relative isolate bg-ink-950 text-paper on-dark overflow-hidden">
+          <HeroVideo />
 
-          <div className="relative max-w-content mx-auto px-4 sm:px-6 pt-14 pb-20 sm:pt-20 sm:pb-24 lg:pt-24 lg:pb-32">
-            <div className="grid lg:grid-cols-[1fr_1.08fr] gap-12 lg:gap-16 items-center">
+          <div className="relative max-w-content mx-auto px-4 sm:px-6 pt-14 pb-20 sm:pt-20 sm:pb-24 lg:pt-28 lg:pb-36">
+            <div className="grid lg:grid-cols-[1.15fr_1fr] gap-12 lg:gap-16 items-center">
               <div className="animate-fade-up">
                 <span className="inline-flex items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-3 py-1.5 text-2xs font-semibold uppercase tracking-[0.14em] text-amber">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber" aria-hidden />
@@ -120,7 +117,7 @@ export default function LandingPage() {
                   <span className="text-amber">at home.</span>
                 </h1>
 
-                <p className="mt-6 text-[17px] leading-relaxed text-paper/70 max-w-md">
+                <p className="mt-6 text-[17px] leading-relaxed text-paper/85 max-w-md">
                   Photograph your parcel, pick a carrier, pay on M-Pesa and walk
                   straight to the counter with a ready ticket. No forms. No queue.
                 </p>
@@ -156,7 +153,7 @@ export default function LandingPage() {
                       <dt className="text-[13.5px] font-semibold text-paper">
                         {label}
                       </dt>
-                      <dd className="text-2xs text-paper/50 mt-0.5 leading-snug">
+                      <dd className="text-2xs text-paper/65 mt-0.5 leading-snug">
                         {detail}
                       </dd>
                     </div>
@@ -164,14 +161,10 @@ export default function LandingPage() {
                 </dl>
               </div>
 
-              {/* Video + dispatch board. On lg the board overlaps the video's
-                  corner for depth; on small screens it stacks underneath. */}
-              <div className="relative animate-fade-up [animation-delay:120ms]">
-                <HeroVideo />
-                {/* Sits below the animation rather than over it — an overlay
-                    at this size covered most of the frame, and the animation
-                    is the point of the hero. */}
-                <DepartureBoard className="mt-4" />
+              {/* The dispatch board floats over the animation on the right,
+                  where the scrim is lightest. */}
+              <div className="animate-fade-up [animation-delay:140ms] lg:justify-self-end lg:w-[22rem]">
+                <DepartureBoard />
               </div>
             </div>
           </div>

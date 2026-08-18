@@ -1,16 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/cn";
 
+/**
+ * Decorative dispatch board for the hero. The rows are illustrative sample
+ * data, not live bookings — hence the "demo" chip, which is there so the
+ * marketing surface doesn't imply a live feed it doesn't have.
+ */
 const ROWS = [
-  { dest: "MOMBASA", carrier: "EASYCOACH", ref: "TM-482913", status: "READY TO PRINT" },
+  { dest: "MOMBASA", carrier: "EASYCOACH", ref: "TM-482913", status: "READY" },
   { dest: "KISUMU", carrier: "MODERN COAST", ref: "TM-118475", status: "BOOKED" },
   { dest: "ELDORET", carrier: "GUARDIAN ANGEL", ref: "TM-905327", status: "PAID" },
-  { dest: "NAKURU", carrier: "EASYCOACH", ref: "TM-660214", status: "READY TO PRINT" },
-  { dest: "MALINDI", carrier: "MODERN COAST", ref: "TM-337850", status: "BOOKED" },
+  { dest: "NAKURU", carrier: "EASYCOACH", ref: "TM-660214", status: "READY" },
 ];
 
-export default function DepartureBoard() {
+const STATUS_STYLES: Record<string, string> = {
+  READY: "bg-teal-light/20 text-teal-light",
+  PAID: "bg-amber/20 text-amber",
+  BOOKED: "bg-white/10 text-paper/60",
+};
+
+export default function DepartureBoard({ className }: { className?: string }) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -19,46 +30,51 @@ export default function DepartureBoard() {
   }, []);
 
   return (
-    <div className="w-full max-w-md rounded-md border-2 border-amber/40 bg-ink overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-amber/20 bg-black/20">
-        <span className="font-mono text-[10px] tracking-[2px] text-amber uppercase">
-          Nairobi Dispatch
+    <div
+      className={cn(
+        "w-full rounded-xl border border-white/10 bg-ink-950/95 backdrop-blur-sm",
+        "overflow-hidden shadow-lifted",
+        className
+      )}
+      aria-hidden
+    >
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
+        <span className="font-mono text-2xs tracking-[0.16em] text-amber uppercase">
+          Nairobi dispatch
         </span>
-        <span className="font-mono text-[10px] tracking-[2px] text-paper/50 uppercase">
-          Live
+        <span className="flex items-center gap-1.5 font-mono text-2xs tracking-[0.14em] text-paper/40 uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-light animate-pulse" />
+          Demo
         </span>
       </div>
-      <div className="divide-y divide-white/10">
+
+      <div className="divide-y divide-white/[0.07]">
         {ROWS.map((row, i) => {
-          const isFlipping = (tick + i) % ROWS.length === 0;
+          const dimmed = (tick + i) % ROWS.length === 0;
           return (
             <div
               key={row.ref}
-              className={`grid grid-cols-[1fr_auto] gap-2 px-4 py-3 transition-all duration-300 ${
-                isFlipping ? "opacity-40" : "opacity-100"
-              }`}
+              className={cn(
+                "flex items-center justify-between gap-3 px-4 py-2.5 transition-opacity duration-500",
+                dimmed ? "opacity-40" : "opacity-100"
+              )}
             >
-              <div>
-                <div className="font-condensed font-bold text-lg text-paper tracking-wide leading-none">
+              <div className="min-w-0">
+                <div className="font-semibold text-[15px] text-paper tracking-[-0.01em] leading-tight">
                   {row.dest}
                 </div>
-                <div className="font-mono text-[10px] text-paper/50 mt-1">
-                  {row.carrier} &middot; {row.ref}
+                <div className="font-mono text-2xs text-paper/40 mt-0.5 truncate">
+                  {row.carrier} · {row.ref}
                 </div>
               </div>
-              <div className="self-center">
-                <span
-                  className={`font-mono text-[10px] px-2 py-1 rounded-sm uppercase tracking-wide ${
-                    row.status === "READY TO PRINT"
-                      ? "bg-teal/20 text-teal"
-                      : row.status === "PAID"
-                      ? "bg-amber/20 text-amber"
-                      : "bg-white/10 text-paper/60"
-                  }`}
-                >
-                  {row.status}
-                </span>
-              </div>
+              <span
+                className={cn(
+                  "font-mono text-2xs px-2 py-1 rounded-full uppercase tracking-[0.08em] shrink-0",
+                  STATUS_STYLES[row.status]
+                )}
+              >
+                {row.status}
+              </span>
             </div>
           );
         })}

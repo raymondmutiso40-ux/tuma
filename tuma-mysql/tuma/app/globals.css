@@ -2,37 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus treatment for the whole product. Mouse users never see it,
+     keyboard users always do. */
+  :focus-visible {
+    outline: 2px solid #2f6f6b;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Dark surfaces need a light ring to stay visible. */
+  .on-dark :focus-visible {
+    outline-color: #e8a23d;
+  }
+
+  ::selection {
+    background: #e8a23d;
+    color: #1b1f2b;
+  }
+
+  /* Inputs inherit the product typeface rather than the UA default. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
 }
 
-::selection {
-  background: #e8a23d;
-  color: #1b1f2b;
+@layer components {
+  /* The perforation across the QR ticket. The notch colour has to match
+     whatever sits behind the ticket, so it is a CSS variable the ticket
+     sets. */
+  .tear-line {
+    position: relative;
+    border-top: 2px dashed #c3c9d4;
+  }
+  .tear-line::before,
+  .tear-line::after {
+    content: "";
+    position: absolute;
+    top: -10px;
+    width: 20px;
+    height: 20px;
+    background: var(--tear-notch, #f7f3ec);
+    border-radius: 50%;
+  }
+  .tear-line::before {
+    left: -10px;
+  }
+  .tear-line::after {
+    right: -10px;
+  }
+
+  /* Skeleton shimmer — used by <Skeleton /> for every loading surface. */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: #e4e7ec;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0.55) 60%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 1.6s infinite;
+  }
+
+  /* Hides content until it scrolls into view, then reveals it. Applied by
+     <Reveal />; without JS the content stays visible. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+  .reveal-visible {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.tear-line {
-  position: relative;
-  border-top: 2px dashed #6b7280;
-}
-.tear-line::before,
-.tear-line::after {
-  content: "";
-  position: absolute;
-  top: -9px;
-  width: 18px;
-  height: 18px;
-  background: #f7f3ec;
-  border-radius: 50%;
-}
-.tear-line::before {
-  left: -9px;
-}
-.tear-line::after {
-  right: -9px;
-}
-
+/* Users who ask for less motion get none of it — including the hero video,
+   which falls back to its poster frame. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+
   .hero-video {
     display: none;
   }
@@ -40,8 +129,28 @@ html {
 
 @media print {
   header,
+  footer,
+  nav,
   .no-print,
   .hero-video {
     display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  /* Keep the ticket's dark header from being dropped by the browser's
+     "background graphics off" default. */
+  .print-exact {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* On paper the page behind the ticket is white, so the perforation
+     cut-outs have to be white too or they print as cream dots. */
+  .tear-line::before,
+  .tear-line::after {
+    background: #fff !important;
   }
 }

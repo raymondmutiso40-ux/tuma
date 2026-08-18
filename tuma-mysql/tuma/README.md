@@ -68,6 +68,39 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+### Using Supabase
+
+`lib/db.ts` is already set up for it — SSL on, small pool — so there is no
+code change. Two details matter:
+
+**Use the transaction pooler, not the direct connection.** In the Supabase
+dashboard under *Connect*, take the connection string on port **6543**:
+
+```
+postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+```
+
+The direct connection (5432) is IPv6-only on newer projects and holds a real
+backend connection per instance, which serverless will exhaust. URL-encode the
+password if it contains `@`, `#`, `/` or `?`.
+
+**Close the public API on the bookings table.** Supabase exposes everything in
+the `public` schema through PostgREST, and its default grants let the `anon`
+role — whose key is public by design — read and write new tables. Bookings
+carry names, phone numbers and photos. Run:
+
+```bash
+psql "$DATABASE_URL" -f migrations/002_supabase_rls.sql
+```
+
+That enables row-level security with no policies and revokes the anon grants.
+Tuma never uses the anon key or PostgREST; it connects as `postgres`, which
+has BYPASSRLS, so the app is unaffected. Load `/admin` afterwards to confirm
+bookings still list.
+
+You can paste `schema.sql` and both migrations into the Supabase SQL Editor
+instead of using `psql`.
+
 ## 2. Deploying to Hostinger
 
 This app needs a persistent Node.js process (it has live API routes and
@@ -93,7 +126,7 @@ git clone <your-repo-url> tuma   # or scp the zip and unzip it
 cd tuma
 npm install
 cp .env.example .env.local
-nano .env.local   # fill in the real DB_HOST / DB_USER / DB_PASSWORD / DB_NAME
+nano .env.local   # DATABASE_URL, Google OAuth, M-Pesa — see .env.example
 npm run build
 ```
 
@@ -104,9 +137,14 @@ pm2 start ecosystem.config.js
 pm2 save
 pm2 startup   # follow the printed instructions so it survives reboots
 ```
-This runs the app on port 3100 (edit `ecosystem.config.js` if you want a
-different port, and update the DB credentials there too, or better, load them
-from `.env.local` via `dotenv` — see note below).
+This runs the app on port 3100 — edit `ecosystem.config.js` if you want a
+different one. There is nothing else to configure there: Next.js loads
+`.env.local` from the app directory under `next start`, so PM2 does not pass
+any variables through and no secrets live in the config file.
+
+If the app starts but every request fails, check that `.env.local` really is
+next to `ecosystem.config.js` and that `cwd: __dirname` is still set — that
+pairing is what makes the env file load.
 
 ### Step 4 — Point a domain/subdomain at it with Nginx
 In hPanel, create a subdomain (e.g. `tuma.yourdomain.co.ke`) pointing at the
@@ -123,7 +161,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;n
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
@@ -131,15 +169,11 @@ server {
 Then get a free SSL certificate (Hostinger's hPanel has a one-click Let's
 Encrypt option, or run `certbot --nginx -d tuma.yourdomain.co.ke` on the VPS).
 
-### Note on secrets in `ecosystem.config.js`
-The example file has plaintext DB credentials for simplicity. For anything
-beyond a first pilot, remove them from the file and instead run:
-```bash
-pm2 start ecosystem.config.js --env production
-```
-with the real values exported in your shell environment, or load them with
-the `dotenv` package inside `lib/db.ts` — either keeps secrets out of
-whatever repo you push this to.
+### Step 5 — Point Safaricom at the callback
+Set `MPESA_CALLBACK_URL` to `https://tuma.yourdomain.co.ke/api/mpesa/callback?token=…`
+with a matching `MPESA_CALLBACK_SECRET`. Do this once TLS is working —
+Safaricom needs a public HTTPS URL, and until it can reach that endpoint no
+payment is ever recorded.
 
 ## 3. Project structure
 
@@ -218,7 +252,9 @@ first-frame poster image, drop one in `public/` and pass it as
    Daraja's Transaction Status API can confirm those after the fact.
 2. Add an admin view per carrier so their staff can see all bookings routed
    to them, not just look up one ref at a time.
-3. Move DB credentials out of `ecosystem.config.js` and into environment
-   variables not committed to source control.
-4. Add automated backups for the MySQL database (Hostinger hPanel has a
-   scheduled backup option under Databases).
+3. Move parcel photos out of the `photo_data_url` column and into object
+   storage. They are stored inline as base64 today, which is fine for a pilot
+   but makes every row heavy — roughly 200 KB per booking after the
+   client-side downscaling.
+4. Turn on scheduled database backups (Supabase does this per project; a
+   self-hosted Postgres needs `pg_dump` on a cron).

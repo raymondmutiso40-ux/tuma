@@ -1,165 +1,142 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession, signOut } from "next-auth/react";
-import { Booking, BookingStatus } from "@/lib/types";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { signIn, useSession } from "next-auth/react";
+import Logo from "@/components/Logo";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import Skeleton from "@/components/ui/Skeleton";
+import { GoogleIcon, ShieldIcon } from "@/components/ui/icons";
 
-const STATUS_STYLES: Record<BookingStatus, string> = {
-  pending_payment: "bg-amber/20 text-amber",
-  payment_failed: "bg-rust/20 text-rust",
-  paid: "bg-teal/20 text-teal",
-  verified: "bg-ink/10 text-ink",
-};
-
-export default function AdminPage() {
-  const { data: session, status: sessionStatus } = useSession();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [updatingRef, setUpdatingRef] = useState<string | null>(null);
-
-  async function loadBookings() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/bookings");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load bookings");
-      setBookings(data.bookings);
-    } catch (e: any) {
-      setError(e.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (sessionStatus === "authenticated") loadBookings();
-  }, [sessionStatus]);
-
-  async function setStatus(ref: string, newStatus: BookingStatus) {
-    setUpdatingRef(ref);
-    try {
-      const res = await fetch("/api/admin/bookings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref, status: newStatus }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Update failed");
-      setBookings((prev) => prev.map((b) => (b.ref === ref ? data.booking : b)));
-    } catch (e: any) {
-      setError(e.message || "Something went wrong");
-    } finally {
-      setUpdatingRef(null);
-    }
-  }
-
-  if (sessionStatus === "loading") {
-    return <div className="min-h-screen flex items-center justify-center text-slate">Loading…</div>;
-  }
-
+/**
+ * Admin sign-in.
+ *
+ * This route is excluded from the auth middleware so it stays reachable
+ * while logged out — it is the only door into /admin.
+ */
+export default function AdminLoginPage() {
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b-2 border-ink px-6 py-4 flex items-center justify-between">
-        <a href="/" className="font-display text-xl">
-          tu<span className="text-amber">ma</span>. <span className="text-slate text-sm font-body">admin</span>
-        </a>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-slate">{session?.user?.email}</span>
-          <button
-            onClick={() => signOut({ callbackUrl: "/admin/login" })}
-            className="font-condensed font-bold uppercase tracking-wide border-2 border-ink px-4 py-1.5 rounded-sm"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+    <div className="relative min-h-screen bg-ink-950 text-paper on-dark flex flex-col overflow-hidden">
+      {/* Same amber glow as the marketing hero, so staff land somewhere that
+          still looks like Tuma. */}
+      <div
+        className="absolute inset-0 bg-[radial-gradient(70%_50%_at_50%_0%,rgba(232,162,61,0.12)_0%,transparent_65%)]"
+        aria-hidden
+      />
 
-      <main className="p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="font-display text-2xl">Bookings</h1>
-          <button
-            onClick={loadBookings}
-            className="font-condensed font-bold uppercase tracking-wide text-sm border-2 border-ink px-4 py-2 rounded-sm"
-          >
-            Refresh
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-5 border-2 border-rust text-rust text-sm px-4 py-3 rounded-sm">
-            {error}
+      <main
+        id="main"
+        className="relative flex-1 flex items-center justify-center px-4 py-12"
+      >
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <Link href="/" className="text-3xl inline-block rounded-md">
+              <Logo />
+            </Link>
+            <p className="mt-4 flex items-center justify-center gap-2 font-mono text-2xs uppercase tracking-[0.16em] text-amber">
+              <ShieldIcon className="w-4 h-4" />
+              Staff access
+            </p>
           </div>
-        )}
 
-        {loading ? (
-          <div className="text-slate">Loading bookings…</div>
-        ) : bookings.length === 0 ? (
-          <div className="text-slate">No bookings yet.</div>
-        ) : (
-          <div className="overflow-x-auto border-2 border-ink rounded-md">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-ink text-paper text-left font-condensed uppercase tracking-wide text-xs">
-                  <th className="px-4 py-3">Ref</th>
-                  <th className="px-4 py-3">Route</th>
-                  <th className="px-4 py-3">Sender / Recipient</th>
-                  <th className="px-4 py-3">Carrier</th>
-                  <th className="px-4 py-3">Price</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((b) => (
-                  <tr key={b.ref} className="border-t border-ink/10">
-                    <td className="px-4 py-3 font-mono">{b.ref}</td>
-                    <td className="px-4 py-3">{b.origin} → {b.destination}</td>
-                    <td className="px-4 py-3">
-                      {b.senderName} → {b.recipientName}
-                    </td>
-                    <td className="px-4 py-3">{b.carrierName}</td>
-                    <td className="px-4 py-3 font-mono">KES {b.priceKes}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[b.status]}`}>
-                        {b.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate">
-                      {new Date(b.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {b.status !== "paid" && (
-                          <button
-                            disabled={updatingRef === b.ref}
-                            onClick={() => setStatus(b.ref, "paid")}
-                            className="text-xs font-semibold px-2.5 py-1.5 rounded-sm bg-teal text-white disabled:opacity-50"
-                          >
-                            Mark paid
-                          </button>
-                        )}
-                        {b.status === "paid" && (
-                          <button
-                            disabled={updatingRef === b.ref}
-                            onClick={() => setStatus(b.ref, "verified")}
-                            className="text-xs font-semibold px-2.5 py-1.5 rounded-sm bg-ink text-paper disabled:opacity-50"
-                          >
-                            Mark verified
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-7 shadow-lifted">
+            <h1 className="font-display text-2xl tracking-[-0.02em] text-center">
+              Sign in to admin
+            </h1>
+            <p className="mt-2.5 text-[14px] text-paper/60 text-center leading-relaxed">
+              Bookings, payments and counter verification for the Tuma
+              operations team.
+            </p>
+
+            <Suspense fallback={<Skeleton className="h-[52px] w-full mt-7" />}>
+              <SignInPanel />
+            </Suspense>
           </div>
-        )}
+
+          <p className="mt-6 text-center text-[13px] text-paper/45">
+            Not staff?{" "}
+            <Link href="/" className="text-paper/80 hover:text-paper underline">
+              Go back to Tuma
+            </Link>
+          </p>
+        </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * NextAuth reports failures by redirecting back here with `?error=`. These
+ * are translated into plain language — an operator seeing "OAuthCallback"
+ * learns nothing useful.
+ */
+const ERRORS: Record<string, { title: string; body: string }> = {
+  AccessDenied: {
+    title: "That account isn't on the admin list",
+    body: "Sign in with an approved Tuma staff account, or ask an administrator to add your email.",
+  },
+  Configuration: {
+    title: "Sign-in isn't configured",
+    body: "The Google credentials are missing on the server. An administrator needs to set them before staff can sign in.",
+  },
+  Verification: {
+    title: "That sign-in link expired",
+    body: "Start again to get a fresh one.",
+  },
+};
+
+const DEFAULT_ERROR = {
+  title: "Couldn't complete sign-in",
+  body: "Something went wrong on the way back from Google. Please try again.",
+};
+
+function SignInPanel() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { status } = useSession();
+  const [busy, setBusy] = useState(false);
+
+  const errorCode = searchParams.get("error");
+  const error = errorCode ? ERRORS[errorCode] ?? DEFAULT_ERROR : null;
+
+  // Already signed in — don't make staff click through a login they don't
+  // need.
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/admin");
+  }, [status, router]);
+
+  return (
+    <>
+      {error && (
+        <div className="mt-6">
+          <Alert tone="error" title={error.title}>
+            {error.body}
+          </Alert>
+        </div>
+      )}
+
+      <Button
+        size="lg"
+        fullWidth
+        className="mt-7 bg-white text-ink hover:bg-paper-light"
+        // Only the click itself disables this. Gating on the session status
+        // would render the one button on the page as disabled during the
+        // initial session fetch, which reads as broken.
+        loading={busy}
+        onClick={() => {
+          setBusy(true);
+          signIn("google", { callbackUrl: "/admin" });
+        }}
+      >
+        {!busy && <GoogleIcon className="w-5 h-5" />}
+        Continue with Google
+      </Button>
+
+      <p className="mt-5 text-2xs text-paper/40 text-center leading-relaxed">
+        Access is limited to approved Tuma staff accounts.
+      </p>
+    </>
   );
 }

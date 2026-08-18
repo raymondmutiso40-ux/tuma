@@ -124,25 +124,62 @@ whatever repo you push this to.
 
 ```
 app/
-  page.tsx                    landing page
-  book/page.tsx                booking wizard (client component)
-  ticket/[ref]/page.tsx         generated ticket + QR (server component)
-  verify/[ref]/page.tsx         counter-staff verification view
-  api/bookings/route.ts          POST create a booking
-  api/bookings/[ref]/route.ts    GET one booking, PATCH to verify
-  api/mpesa/stk/route.ts         simulated M-Pesa STK push
+  page.tsx                     landing page
+  book/page.tsx                 booking flow, 5 steps (client component)
+  track/page.tsx                public "where's my parcel" lookup
+  ticket/[ref]/page.tsx          generated ticket + QR (server component)
+  verify/[ref]/page.tsx          counter-staff verification view
+  admin/page.tsx                 operations dashboard (auth required)
+  admin/login/page.tsx           Google sign-in for staff
+  terms, privacy                 prototype legal pages
+  error.tsx, not-found.tsx       friendly failure + 404 screens
+  api/bookings/route.ts           POST create a booking
+  api/bookings/[ref]/route.ts     GET one booking, PATCH to verify
+  api/admin/bookings/route.ts     GET all / PATCH status (admin only)
+  api/mpesa/stk/route.ts          M-Pesa STK push
 lib/
-  types.ts     Booking type, carrier list, destinations
-  db.ts         MySQL connection pool (mysql2)
-  store.ts      booking CRUD functions, all backed by MySQL
+  types.ts      Booking type, carrier list, destinations
+  db.ts          connection pool
+  store.ts       booking CRUD functions
+  status.ts      status → label/tone, and the derived parcel journey
+  format.ts      currency/date/phone formatting (locale + TZ pinned)
+  cn.ts          class-name joiner
 components/
-  DepartureBoard.tsx  hero animation
-  Ticket.tsx           shared ticket visual
-  PrintButton.tsx      client-side window.print() trigger
+  ui/            design-system primitives (see below)
+  SiteHeader / SiteFooter   shared navigation and footer
+  HeroVideo.tsx             the 3D animation, lazily loaded
+  PhotoCapture.tsx          parcel photo capture + downscaling
+  StepIndicator.tsx         booking progress
+  Ticket / TicketActions    the QR ticket and its print/share actions
+  BookingTimeline.tsx       booked → paid → accepted → in transit
+  TrackParcel.tsx           tracking lookup + results
+  StatusBadge, Logo, DepartureBoard
 schema.sql      run this once to create the bookings table
 ecosystem.config.js  PM2 process config for the VPS
 .env.example    copy to .env.local and fill in your DB credentials
 ```
+
+### Design system
+
+Every screen is built from the same primitives in `components/ui` — `Button`,
+`Card`, `Field`/`Input`/`Select`, `Badge`, `Alert`, `Skeleton`, `EmptyState`,
+`Reveal` and the inline `icons` set. Colour, type, radii, shadows and the
+animation keyframes all live in `tailwind.config.ts`; `app/globals.css` holds
+the base layer, the focus treatment, the skeleton shimmer and the
+reduced-motion and print rules.
+
+Two things worth knowing before you add a screen:
+
+- `amber` is a 2:1 colour on white. Use it on dark surfaces or as a non-text
+  fill; for amber text on a light background use `amber-700`.
+- Status is never communicated by colour alone — `StatusBadge` pairs the tone
+  with a label and a dot, and `BookingTimeline` uses distinct icons per state.
+
+The hero animation lives at `public/hero-3d.mp4` (1280×720). It is not
+requested until it nears the viewport, is muted and `playsInline`, and is
+replaced by a branded fallback panel for anyone with reduced motion enabled
+or a browser that can't decode it. To add a first-frame poster image, drop one
+in `public/` and pass it as `<HeroVideo poster="/hero-poster.jpg" />`.
 
 ## 4. Next steps toward a real pilot
 

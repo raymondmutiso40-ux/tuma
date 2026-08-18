@@ -1,5 +1,19 @@
 import { Booking } from "@/lib/types";
+import { formatDateTime, formatKes, formatPhone } from "@/lib/format";
+import { STATUS_META } from "@/lib/status";
+import Logo from "./Logo";
+import Badge from "./ui/Badge";
+import { ArrowRightIcon } from "./ui/icons";
 
+/**
+ * The parcel ticket.
+ *
+ * Built to survive a print: the perforation, the QR and the reference are
+ * all real ink rather than background colour, and `print-exact` keeps the
+ * dark header when the browser would otherwise drop it. The `--tear-notch`
+ * variable tells the perforation cut-outs what colour sits behind the
+ * ticket so they read as holes rather than dots.
+ */
 export default function Ticket({
   booking,
   qrDataUrl,
@@ -7,53 +21,125 @@ export default function Ticket({
   booking: Booking;
   qrDataUrl: string;
 }) {
+  const meta = STATUS_META[booking.status];
+  const paid = booking.status === "paid" || booking.status === "verified";
+
   return (
-    <div className="w-full max-w-sm mx-auto bg-white border-2 border-ink rounded-md overflow-hidden shadow-[0_16px_40px_rgba(27,31,43,0.18)]">
+    <article
+      className="print-exact w-full max-w-[26rem] mx-auto bg-white rounded-xl overflow-hidden border border-ink-200 shadow-ticket"
+      style={{ ["--tear-notch" as string]: "#F7F3EC" }}
+      aria-label={`Parcel ticket ${booking.ref}`}
+    >
+      {/* Header */}
       <div className="bg-ink text-paper px-5 py-4 flex items-center justify-between">
-        <div className="font-display text-lg">
-          tu<span className="text-amber">ma</span>.
-        </div>
-        <div className="font-mono text-[11px] text-amber">{booking.ref}</div>
+        <span className="text-lg">
+          <Logo />
+        </span>
+        <span className="text-right">
+          <span className="block font-mono text-2xs uppercase tracking-[0.14em] text-paper/50">
+            Reference
+          </span>
+          <span className="block font-mono text-[15px] font-bold text-amber tracking-tight">
+            {booking.ref}
+          </span>
+        </span>
       </div>
 
-      <div className="p-5">
-        <div className="flex items-center justify-between font-condensed font-bold text-2xl mb-4">
-          <span>{booking.origin.split(" ")[0].toUpperCase()}</span>
-          <span className="text-amber text-lg">&rarr;</span>
-          <span>{booking.destination.toUpperCase()}</span>
+      {/* Route */}
+      <div className="px-5 pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-2xs uppercase tracking-[0.12em] text-ink-400">
+              From
+            </p>
+            <p className="font-display text-xl tracking-[-0.02em] truncate">
+              {booking.origin}
+            </p>
+          </div>
+          <ArrowRightIcon className="w-5 h-5 text-amber shrink-0" />
+          <div className="min-w-0 text-right">
+            <p className="text-2xs uppercase tracking-[0.12em] text-ink-400">
+              To
+            </p>
+            <p className="font-display text-xl tracking-[-0.02em] truncate">
+              {booking.destination}
+            </p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[13px] mb-1">
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate mb-0.5">Carrier</div>
-            <div className="font-semibold">{booking.carrierName}</div>
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-md bg-paper px-3.5 py-2.5">
+          <div className="min-w-0">
+            <p className="text-2xs uppercase tracking-[0.12em] text-ink-400">
+              Carrier
+            </p>
+            <p className="text-[15px] font-semibold truncate">
+              {booking.carrierName}
+            </p>
           </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate mb-0.5">Weight</div>
-            <div className="font-semibold">{booking.weightKg} kg</div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate mb-0.5">Sender</div>
-            <div className="font-semibold">{booking.senderName}</div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate mb-0.5">Recipient</div>
-            <div className="font-semibold">{booking.recipientName}</div>
-          </div>
+          <Badge tone={meta.tone} dot>
+            {paid ? `${meta.label} · ${formatKes(booking.priceKes)}` : meta.label}
+          </Badge>
         </div>
       </div>
+
+      {/* Details */}
+      <dl className="px-5 py-5 grid grid-cols-2 gap-x-4 gap-y-4 text-[13.5px]">
+        <Detail label="Sender" value={booking.senderName} sub={formatPhone(booking.senderPhone)} />
+        <Detail
+          label="Recipient"
+          value={booking.recipientName}
+          sub={formatPhone(booking.recipientPhone)}
+        />
+        <Detail label="Contents" value={booking.description} sub={booking.category} />
+        {/* No fee here — the status badge above already carries it. */}
+        <Detail label="Weight" value={`${booking.weightKg} kg`} />
+      </dl>
 
       <div className="tear-line mx-[18px]" />
 
-      <div className="p-5 flex items-center gap-4">
+      {/* Stub */}
+      <div className="px-5 py-5 flex items-start gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrDataUrl} alt="Booking QR code" className="w-[110px] h-[110px] shrink-0 border-4 border-white" />
-        <div className="text-[12px] text-slate leading-relaxed">
-          <div className="font-mono font-bold text-ink text-[15px] mb-1">{booking.ref}</div>
-          Scan at the carrier counter to verify commodity, weight &amp; payment.
-          Valid for drop-off within 48 hours.
+        <img
+          src={qrDataUrl}
+          alt={`QR code for booking ${booking.ref}`}
+          className="w-[124px] h-[124px] shrink-0 rounded-md border border-ink-100 bg-white p-1"
+        />
+        <div className="min-w-0">
+          <p className="font-mono text-[15px] font-bold tracking-tight">
+            {booking.ref}
+          </p>
+          <p className="text-[12.5px] text-ink-500 leading-relaxed mt-1.5">
+            Scan at the {booking.carrierName} counter to verify the parcel,
+            weight and payment. Valid for drop-off within 48 hours.
+          </p>
+          <p className="font-mono text-2xs text-ink-400 mt-2.5">
+            Booked {formatDateTime(booking.createdAt)}
+          </p>
         </div>
       </div>
+    </article>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-2xs uppercase tracking-[0.12em] text-ink-400 mb-0.5">
+        {label}
+      </dt>
+      <dd className="font-semibold break-words">{value || "—"}</dd>
+      {sub && sub !== "—" && (
+        <dd className="text-2xs text-ink-400 mt-0.5 break-words">{sub}</dd>
+      )}
     </div>
   );
 }

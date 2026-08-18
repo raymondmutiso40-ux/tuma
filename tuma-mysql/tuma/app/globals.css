@@ -32,9 +32,16 @@ html {
   right: -9px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .hero-video {
+    display: none;
+  }
+}
+
 @media print {
   header,
-  .no-print {
+  .no-print,
+  .hero-video {
     display: none !important;
   }
 }

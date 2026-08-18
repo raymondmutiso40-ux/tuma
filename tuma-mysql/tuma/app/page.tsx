@@ -19,7 +19,20 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section className="bg-ink text-paper">
+      <section className="relative isolate overflow-hidden bg-ink text-paper">
+        <video
+          className="hero-video absolute inset-0 -z-10 w-full h-full object-cover"
+          src="/hero-3d.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        />
+        {/* scrim — keeps the copy legible over the animation */}
+        <div className="absolute inset-0 -z-10 bg-ink/75" aria-hidden="true" />
+
         <div className="max-w-6xl mx-auto px-6 py-16 md:py-24 grid md:grid-cols-[1.15fr_1fr] gap-12 items-center">
           <div>
             <div className="font-mono text-xs uppercase tracking-[2px] text-amber mb-5">

@@ -2,41 +2,62 @@
 
 A fullstack Next.js 14 app for "book online, print a ticket, skip the counter
 queue" for Kenyan bus/courier parcel desks (Easycoach, Modern Coast, Guardian
-Angel). Backed by a real MySQL database — no Python anywhere in this project,
-frontend or backend.
+Angel). Backed by a real PostgreSQL database — no Python anywhere in this
+project, frontend or backend.
 
 ## Stack
 
 - **Frontend + backend:** Next.js 14 (App Router), TypeScript, Tailwind — one
   codebase, API routes double as the backend
-- **Database:** MySQL, via the `mysql2` driver (raw SQL, no ORM)
+- **Database:** PostgreSQL, via the `pg` driver (raw SQL, no ORM)
+- **Payments:** Safaricom Daraja (Lipa Na M-Pesa Online / STK Push)
+- **Admin auth:** NextAuth with Google, restricted to an email allowlist
 - **QR codes:** generated server-side with the `qrcode` npm package
 - **Process manager (production):** PM2
 - **Reverse proxy (production):** Nginx
 
-## What's real vs simulated
+## Payments
 
-**Real:** the full booking flow, all data persisted to MySQL, QR generation,
-the `/verify/[ref]` counter-scan page.
+M-Pesa is a real Daraja integration, not a simulation, and it is a two-part
+flow — both parts are required:
 
-**Simulated (clearly isolated so you can swap it in):**
-- `/api/mpesa/stk` fakes a ~1.5s delay and marks the booking "paid" — it does
-  not call Safaricom's Daraja API yet. Replace the body of this route with a
-  real STK Push request + a callback route to receive Safaricom's
-  confirmation.
+1. `POST /api/mpesa/stk` starts the payment and stores the `CheckoutRequestID`
+   Daraja returns. That ID is the only handle Safaricom gives us for the
+   result; it identifies the transaction by that, not by our booking ref.
+2. `POST /api/mpesa/callback` receives the result and is **the only thing that
+   marks a booking paid**. Point `MPESA_CALLBACK_URL` at it. If it is not
+   reachable, the booking page will start a payment, poll for a confirmation
+   nothing is writing, and time out after ~90 seconds however the customer
+   answers the prompt on their phone.
+
+The callback is a public endpoint that decides whether a parcel counts as
+paid, so set `MPESA_CALLBACK_SECRET` and include it as `?token=` on the
+callback URL. It also checks the amount against the booking, ignores repeat
+deliveries of an already-settled booking, and returns 500 on a write failure
+so Safaricom retries rather than the payment being lost.
+
+Locally, Safaricom needs a public HTTPS URL — expose your dev server with a
+tunnel (ngrok or similar) and use that host in `MPESA_CALLBACK_URL`.
 
 ## 1. Local setup
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in your local MySQL credentials
+cp .env.example .env.local   # fill in DATABASE_URL, Google and M-Pesa keys
 ```
 
-Create the database and load the schema:
+Load the schema into a fresh database:
 
 ```bash
-mysql -u root -p -e "CREATE DATABASE tuma_db;"
-mysql -u root -p tuma_db < schema.sql
+psql "$DATABASE_URL" -f schema.sql
+```
+
+If you already have a `bookings` table from an earlier version, run the
+migration instead — it adds the two M-Pesa columns the original schema was
+missing, without touching existing rows:
+
+```bash
+psql "$DATABASE_URL" -f migrations/001_mpesa_columns.sql
 ```
 
 Run it:
@@ -54,15 +75,15 @@ server-rendered pages), so it needs a **Hostinger VPS or Cloud Hosting plan
 with Node.js support** — not the basic shared hosting tier, which only serves
 static files/PHP.
 
-### Step 1 — Set up MySQL
-In hPanel: **Databases → MySQL Databases** → create `tuma_db` and a user with
-a strong password, grant it all privileges on that database. Note the host
-(usually `localhost` if the app and DB are on the same VPS).
+### Step 1 — Set up PostgreSQL
+Either use a hosted Postgres (Supabase, Neon) and copy its connection string,
+or install Postgres on the VPS and create a database and user for the app.
+Whichever you choose, `DATABASE_URL` is the only thing the app needs — note
+that `lib/db.ts` always connects with SSL.
 
-Import the schema — either through phpMyAdmin's "Import" tab with
-`schema.sql`, or via SSH:
+Load the schema over SSH:
 ```bash
-mysql -u tuma_user -p tuma_db < schema.sql
+psql "$DATABASE_URL" -f schema.sql
 ```
 
 ### Step 2 — Get the code onto the server
@@ -136,7 +157,9 @@ app/
   api/bookings/route.ts           POST create a booking
   api/bookings/[ref]/route.ts     GET one booking, PATCH to verify
   api/admin/bookings/route.ts     GET all / PATCH status (admin only)
-  api/mpesa/stk/route.ts          M-Pesa STK push
+  api/mpesa/stk/route.ts          starts an STK push, stores CheckoutRequestID
+  api/mpesa/callback/route.ts     Safaricom's result — the only thing that
+                                  marks a booking paid
 lib/
   types.ts      Booking type, carrier list, destinations
   db.ts          connection pool
@@ -154,9 +177,10 @@ components/
   BookingTimeline.tsx       booked → paid → accepted → in transit
   TrackParcel.tsx           tracking lookup + results
   StatusBadge, Logo, DepartureBoard
-schema.sql      run this once to create the bookings table
+schema.sql      run this once to create the bookings table (PostgreSQL)
+migrations/     additive SQL for databases created before a schema change
 ecosystem.config.js  PM2 process config for the VPS
-.env.example    copy to .env.local and fill in your DB credentials
+.env.example    copy to .env.local and fill in
 ```
 
 ### Design system
@@ -189,8 +213,9 @@ first-frame poster image, drop one in `public/` and pass it as
 
 ## 4. Next steps toward a real pilot
 
-1. Replace the simulated `/api/mpesa/stk` with a real Safaricom Daraja STK
-   Push call, plus a callback route to receive payment confirmation.
+1. Reconcile payments on a schedule. The callback is the happy path, but a
+   dropped delivery currently leaves a booking stuck as awaiting payment —
+   Daraja's Transaction Status API can confirm those after the fact.
 2. Add an admin view per carrier so their staff can see all bookings routed
    to them, not just look up one ref at a time.
 3. Move DB credentials out of `ecosystem.config.js` and into environment

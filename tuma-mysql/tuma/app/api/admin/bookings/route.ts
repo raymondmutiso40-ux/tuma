@@ -3,17 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getAllBookings, updateBooking } from "@/lib/store";
 
-async function requireAdmin(req: NextRequest) {
+// A session only exists here if lib/auth.ts already matched the account
+// against ADMIN_EMAILS, so its presence is sufficient.
+async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  // Temporary debug logging — check Vercel function logs for this to see
-  // exactly what's happening with the session/cookie on each request.
-  console.log("[admin/bookings] cookie header present:", !!req.headers.get("cookie"));
-  console.log("[admin/bookings] session:", JSON.stringify(session));
   return !!session;
 }
 
-export async function GET(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
+export async function GET() {
+  if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const bookings = await getAllBookings();
@@ -21,7 +19,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
+  if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
